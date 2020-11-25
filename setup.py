@@ -50,13 +50,13 @@ with open("./README.md") as readme:
 
 install_requires = [
     "pycryptodome>=3.9.2,<4.0.0",
-    "base58>=1.0.3,<2.0.0",
+    "base58>=2.0.1",
     "pymultihash>=0.8.2",
     "multiaddr>=0.0.8,<0.1.0",
     "rpcudp>=3.0.0,<4.0.0",
     "lru-dict>=1.1.6",
     "protobuf>=3.10.0,<4.0.0",
-    "coincurve>=10.0.0,<11.0.0",
+    "coincurve",
     "pynacl==1.3.0",
     "dataclasses>=0.7, <1;python_version<'3.7'",
     "async_generator==1.10",
@@ -67,7 +67,7 @@ install_requires = [
 # RTD system so we have to exclude these dependencies when we are in an RTD environment.
 readthedocs_is_building = os.environ.get("READTHEDOCS", False)
 if not readthedocs_is_building:
-    install_requires.append("fastecdsa==1.7.4")
+    install_requires.append("fastecdsa")
 
 
 setup(
