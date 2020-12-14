@@ -1,7 +1,8 @@
 import asyncio
-from contextlib import asynccontextmanager
 from typing import Any, AsyncIterator, Dict, Tuple, cast
 
+# NOTE: import ``asynccontextmanager`` from ``contextlib`` when support for python 3.6 is dropped.
+from async_generator import asynccontextmanager
 import factory
 
 from libp2p import generate_new_rsa_identity, generate_peer_id_from
@@ -10,6 +11,7 @@ from libp2p.host.basic_host import BasicHost
 from libp2p.network.connection.swarm_connection import SwarmConn
 from libp2p.network.stream.net_stream_interface import INetStream
 from libp2p.network.swarm import Swarm
+from libp2p.peer.id import ID
 from libp2p.peer.peerstore import PeerStore
 from libp2p.pubsub.floodsub import FloodSub
 from libp2p.pubsub.gossipsub import GossipSub
@@ -33,6 +35,12 @@ from .constants import (
 from .utils import connect, connect_swarm
 
 
+def initialize_peerstore_with_our_keypair(self_id: ID, key_pair: KeyPair) -> PeerStore:
+    peer_store = PeerStore()
+    peer_store.add_key_pair(self_id, key_pair)
+    return peer_store
+
+
 def security_transport_factory(
     is_secure: bool, key_pair: KeyPair
 ) -> Dict[TProtocol, BaseSecureTransport]:
@@ -52,7 +60,9 @@ class SwarmFactory(factory.Factory):
         muxer_opt = {MPLEX_PROTOCOL_ID: Mplex}
 
     peer_id = factory.LazyAttribute(lambda o: generate_peer_id_from(o.key_pair))
-    peerstore = factory.LazyFunction(PeerStore)
+    peerstore = factory.LazyAttribute(
+        lambda o: initialize_peerstore_with_our_keypair(o.peer_id, o.key_pair)
+    )
     upgrader = factory.LazyAttribute(
         lambda o: TransportUpgrader(
             security_transport_factory(o.is_secure, o.key_pair), o.muxer_opt
@@ -97,7 +107,6 @@ class HostFactory(factory.Factory):
         is_secure = False
         key_pair = factory.LazyFunction(generate_new_rsa_identity)
 
-    public_key = factory.LazyAttribute(lambda o: o.key_pair.public_key)
     network = factory.LazyAttribute(
         lambda o: SwarmFactory(is_secure=o.is_secure, key_pair=o.key_pair)
     )
@@ -113,10 +122,7 @@ class HostFactory(factory.Factory):
                 for key_pair in key_pairs
             ]
         )
-        return tuple(
-            BasicHost(key_pair.public_key, swarm)
-            for key_pair, swarm in zip(key_pairs, swarms)
-        )
+        return tuple(BasicHost(swarm) for swarm in swarms)
 
 
 class FloodsubFactory(factory.Factory):
@@ -137,6 +143,7 @@ class GossipsubFactory(factory.Factory):
     time_to_live = GOSSIPSUB_PARAMS.time_to_live
     gossip_window = GOSSIPSUB_PARAMS.gossip_window
     gossip_history = GOSSIPSUB_PARAMS.gossip_history
+    heartbeat_initial_delay = GOSSIPSUB_PARAMS.heartbeat_initial_delay
     heartbeat_interval = GOSSIPSUB_PARAMS.heartbeat_interval
 
 
@@ -148,6 +155,7 @@ class PubsubFactory(factory.Factory):
     router = None
     my_id = factory.LazyAttribute(lambda obj: obj.host.get_id())
     cache_size = None
+    strict_signing = False
 
 
 async def swarm_pair_factory(
@@ -166,7 +174,7 @@ async def host_pair_factory(is_secure: bool) -> Tuple[BasicHost, BasicHost]:
     return hosts[0], hosts[1]
 
 
-@asynccontextmanager
+@asynccontextmanager  # type: ignore
 async def pair_of_connected_hosts(
     is_secure: bool = True
 ) -> AsyncIterator[Tuple[BasicHost, BasicHost]]:
