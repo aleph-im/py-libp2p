@@ -1,4 +1,4 @@
-from typing import Any, Dict, List, Sequence
+from typing import Any, Dict, List, Sequence, Set
 
 from multiaddr import Multiaddr
 
@@ -13,14 +13,14 @@ class PeerData(IPeerData):
     privkey: PrivateKey
     metadata: Dict[Any, Any]
     protocols: List[str]
-    addrs: List[Multiaddr]
+    addrs: Set[Multiaddr]
 
     def __init__(self) -> None:
         self.pubkey = None
         self.privkey = None
         self.metadata = {}
         self.protocols = []
-        self.addrs = []
+        self.addrs = set()
 
     def get_protocols(self) -> List[str]:
         """
@@ -44,17 +44,17 @@ class PeerData(IPeerData):
         """
         :param addrs: multiaddresses to add
         """
-        self.addrs.extend(addrs)
+        self.addrs.update(addrs)
 
     def get_addrs(self) -> List[Multiaddr]:
         """
         :return: all multiaddresses
         """
-        return self.addrs
+        return list(self.addrs)
 
     def clear_addrs(self) -> None:
         """Clear all addresses."""
-        self.addrs = []
+        self.addrs = set()
 
     def put_metadata(self, key: str, val: Any) -> None:
         """
